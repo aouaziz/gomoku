@@ -1,3 +1,6 @@
+#ifndef GOMOKU_HPP
+#define GOMOKU_HPP
+
 #include <vector>
 #include <iostream>
 
@@ -31,22 +34,26 @@ class Gomoku{
         // ── core actions ──
         Cell getCell(int row, int col) const;
         void setCell(int row, int col, Cell cell);
+        void setCaptures(Cell cell);
         bool inBounds(int row, int col) const;
         Cell opponent(Cell color) const;
+        void printBoard() const ;
 
 
         // ── game logic (implement step by step) ──
-        MoveResult applayMove(int row, int col, Cell color);
-        void undoMove(const MoveResult &move);
+        // MoveResult applayMove(int row, int col, Cell color);
+        // void undoMove(const MoveResult &move);
         
         std::vector<Point> checkCaptures(int row, int col, Cell color) const;
-        bool hasFive(Cell color) const;
-        bool hasTenCaptures(Cell color) const;
+        // bool hasFive(Cell color) const;
+        // bool hasTenCaptures(Cell color) const;
         // bool            isDoubleThree(int r, int c, Cell color) const;  // later
 
         // ── game state ──
-        Cell getCurrentTurn() const ;
-        int getCaptured(Cell color) const;
-        bool isGameOver() const;
-        void printBoard() const;
+        // Cell getCurrentTurn() const ;
+        // int getCaptured(Cell color) const;
+        // bool isGameOver() const;
 };
+
+
+#endif
