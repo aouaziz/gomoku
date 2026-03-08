@@ -13,10 +13,9 @@ struct Point {
 };
 
 struct MoveResult{
-    Point position;
+    Point placed;
     Cell color;
-    std::vector<Point> captured_stones; // stones captured by this move
-    
+    std::vector<Point> captured; // stones captured by this move
 };
 
 class Gomoku{
@@ -41,11 +40,14 @@ class Gomoku{
 
 
         // ── game logic (implement step by step) ──
-        // MoveResult applayMove(int row, int col, Cell color);
-        // void undoMove(const MoveResult &move);
-        
+        MoveResult applyMove(int row, int col, Cell color);
+        void undoMove(const MoveResult &move);
         std::vector<Point> checkCaptures(int row, int col, Cell color) const;
-        // bool hasFive(Cell color) const;
+        // --- check Five 
+        bool    hasFiveAt(int r, int c, Cell color) const;
+        bool    hasFive(Cell color) const;  // scans whole board (fallback)
+        int     countDirection(int r, int c, int dr, int dc, Cell color) const;
+
         // bool hasTenCaptures(Cell color) const;
         // bool            isDoubleThree(int r, int c, Cell color) const;  // later
 

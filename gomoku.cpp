@@ -43,11 +43,66 @@ Cell Gomoku::opponent(Cell color) const {
     return (color == BLACK) ? WHITE : BLACK;
 }
 
-// MoveResult Gomoku::applayMove(int row, int col , Cell color)
-// {
-//     if (!inBounds(row, col) || getCell(row, col) != EMPTY) {
-//     }
-// }
+MoveResult Gomoku::applyMove(int row, int col, Cell color)
+{
+    MoveResult mv;
+
+    if (!inBounds(row, col) || board[row][col] != EMPTY)
+        throw std::invalid_argument("Invalid move");
+
+    mv.placed = {row, col};
+    mv.color = color;
+
+    board[row][col] = color;
+
+    // detect captures
+    mv.captured = checkCaptures(row, col, color);
+
+    int stonesCaptured = 0;
+
+    for (auto &p : mv.captured)
+    {
+        board[p.row][p.col] = EMPTY;
+        stonesCaptured++;
+    }
+
+    if (color == BLACK)
+        capturedBlack += stonesCaptured;
+    else
+        capturedWhite += stonesCaptured;
+
+    turn = opponent(color);
+
+    history.push_back(mv);
+
+    return mv;
+}
+
+void Gomoku::undoMove(const MoveResult &mr)
+{
+    board[mr.placed.row][mr.placed.col] = EMPTY;
+
+    int stonesCaptured = 0;
+    Cell oppColor = opponent(mr.color);
+
+    for (const auto &p : mr.captured)
+    {
+        board[p.row][p.col] = oppColor;
+        stonesCaptured++;
+    }
+
+    if (mr.color == BLACK)
+        capturedBlack -= stonesCaptured;
+    else
+        capturedWhite -= stonesCaptured;
+
+    turn = mr.color;
+
+    // Remove from history
+    if (!history.empty())
+        history.pop_back();
+}
+
 
 void Gomoku::printBoard() const {
     std::cout << "   ";

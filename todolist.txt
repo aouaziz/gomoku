@@ -1,0 +1,1 @@
+you should check the applyMove if it throw exception
