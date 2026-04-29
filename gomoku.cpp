@@ -149,3 +149,46 @@ std::vector<Point> Gomoku::checkCaptures(int r, int c, Cell color) const {
     }
     return captured;
 }
+int Gomoku::countDirection(int r, int c, int dr, int dc, Cell color ) const{
+
+    int count =0;
+    int nr = r +dr ;
+    int nc = c + dc;
+    while(inBounds(nr,nc) && board[nr][nc] == color)   
+    {
+        count++;
+        nr += dr;
+        nc += dc;
+    }
+    return count ;
+}
+bool Gomoku::hasFiveAt(int r, int c, Cell color) const{
+    int dr[] = {0,1,1,1};
+    int dc[] = {1,0,1,-1};
+    for(int i =0 ; i< 4 ; i++)
+    {
+        int total = 1 + countDirection(r,c,dr[i],dc[i],color) + countDirection(r,c,-dr[i],-dc[i],color);
+        if(total >= 5)
+            return true; 
+    }
+    return false;
+}
+
+bool Gomoku::hasFive(Cell color)const {
+   
+   
+   
+    for(int r = 0 ; r < BOARD_SIZE ; r++ )
+    {
+        for(int c = 0 ; c < BOARD_SIZE ; c++)
+        {
+            if(board[r][c]==color && hasFiveAt(r,c,color))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool Gomoku::hasTenCaptures(Cell color) const{
+    return (color  == BLACK && capturedBlack >=10) || (color == WHITE && capturedWhite >= 10);
+}

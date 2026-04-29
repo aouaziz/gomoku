@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <iostream>
-
+#include <stdexcept> 
 
 const int BOARD_SIZE = 19;
 enum Cell { EMPTY, BLACK, WHITE };
@@ -25,7 +25,7 @@ class Gomoku{
     int capturedBlack;
     int capturedWhite;
     std::vector<MoveResult> history;
-
+    
     public:
         Gomoku();
         ~Gomoku();
@@ -42,19 +42,17 @@ class Gomoku{
         // ── game logic (implement step by step) ──
         MoveResult applyMove(int row, int col, Cell color);
         void undoMove(const MoveResult &move);
-        std::vector<Point> checkCaptures(int row, int col, Cell color) const;
+        std::vector<Point> checkCaptures(int row, int col, Cell c) const;
         // --- check Five 
         bool    hasFiveAt(int r, int c, Cell color) const;
         bool    hasFive(Cell color) const;  // scans whole board (fallback)
         int     countDirection(int r, int c, int dr, int dc, Cell color) const;
 
-        // bool hasTenCaptures(Cell color) const;
-        // bool            isDoubleThree(int r, int c, Cell color) const;  // later
+        bool hasTenCaptures(Cell color) const;
+        bool isOpenFourAt(int r, int c, int dr, int dc, Cell color);
+        bool isFreeThreeAt(int r, int c, int dr, int dc, Cell color);
+        bool isDoubleThree(int r, int c, Cell color);
 
-        // ── game state ──
-        // Cell getCurrentTurn() const ;
-        // int getCaptured(Cell color) const;
-        // bool isGameOver() const;
 };
 
 
