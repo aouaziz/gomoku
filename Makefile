@@ -1,6 +1,6 @@
 NAME = gomoku
 
-SRC =  main.cpp  gomoku.cpp
+SRC =  main.cpp  gomoku.cpp Logic.cpp
 
 OBJ = $(SRC:.cpp=.o)
 CXX = c++

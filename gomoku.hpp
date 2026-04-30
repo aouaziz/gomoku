@@ -50,9 +50,11 @@ class Gomoku{
 
         bool hasTenCaptures(Cell color) const;
         bool isOpenFourAt(int r, int c, int dr, int dc, Cell color);
-        bool isFreeThreeAt(int r, int c, int dr, int dc, Cell color);
-        bool isDoubleThree(int r, int c, Cell color);
-
+        bool isFreeThreeAt(int r, int c, int dr, int dc, Cell color) ;
+        bool isDoubleThree(int r, int c, Cell color)  ;
+        
+        bool isFiveBreakable(Cell winnerColor);
+        bool checkIfCorrectFive(int r , int c , Cell opponentColor,Cell winnerColor);
 };
 
 

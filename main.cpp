@@ -36,10 +36,15 @@ int main() {
 
             // 2. Check for 5-in-a-row
             if (game.hasFiveAt(row, col, currentTurn)) {
-                game.printBoard();
-                std::cout << "\n🎉 WINNER! " << (currentTurn == BLACK ? "Black" : "White") 
-                          << " wins with 5-in-a-row!\n";
-                break; // Ends the game loop
+                if (game.isFiveBreakable(currentTurn)) {
+                    std::cout << "\n⚠️ " << (currentTurn == BLACK ? "Black" : "White") 
+                          << " has 5-in-a-row, but it can be broken! Game continues...\n";
+                } else {
+                        game.printBoard();
+                        std::cout << "\n🎉 WINNER! " << (currentTurn == BLACK ? "Black" : "White") 
+                                  << " wins with an unbreakable 5-in-a-row!\n";
+                        break; 
+                    }
             }
 
             // If the move was successful and no one won, switch turns!

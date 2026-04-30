@@ -49,6 +49,10 @@ MoveResult Gomoku::applyMove(int row, int col, Cell color)
 
     if (!inBounds(row, col) || board[row][col] != EMPTY)
         throw std::invalid_argument("Invalid move");
+    
+    else if (isDoubleThree(row, col, color) && checkCaptures(row, col, color).empty()) {
+        throw std::invalid_argument("Forbidden Move: Double-Three!");
+    }
 
     mv.placed = {row, col};
     mv.color = color;
