@@ -1,7 +1,8 @@
 #include "GameSession.hpp"
 #include "../engine/Rules.hpp"
+#include "../ai/AI.hpp" 
 
-GameSession::GameSession() : currentTurn(BLACK), statusMsg("Black's turn") {}
+GameSession::GameSession(bool playVsAI , Cell aiPlayerColor ) : currentTurn(BLACK), statusMsg("Black's turn"), vsAI(playVsAI), aiColor(aiPlayerColor) {} 
 
 const GameEngine& GameSession::getEngine() const { return engine; }
 Cell GameSession::getCurrentTurn() const { return currentTurn; }
@@ -43,4 +44,19 @@ void GameSession::updateStatusAfterMove() {
 
 void GameSession::switchTurn() {
     currentTurn = getOpponent(currentTurn);
+}
+
+bool GameSession::isAITurn() const {
+    // It's the AI's turn if vsAI is true, the game isn't over, and the current turn matches the AI's color
+    return vsAI && !isGameOver() && (currentTurn == aiColor);
+}
+
+void GameSession::handleAITurn() {
+    if (!isAITurn()) return;
+
+    AI ai;
+    Point bestMove = ai.getBestMove(engine, aiColor);
+    
+    // We can re-use the player move logic because it safely applies the move and switches turns!
+    handlePlayerMove(bestMove.row, bestMove.col);
 }

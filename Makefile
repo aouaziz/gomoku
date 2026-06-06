@@ -12,8 +12,11 @@ GUI_SRC    = src/gui/InputHandler.cpp \
              src/gui/Renderer.cpp \
              src/gui/GameWindow.cpp
 
+AI_SRC     = src/ai/AI.cpp
+
 # --- Combined Sources ---
-COMMON_SRC = $(ENGINE_SRC) $(GAME_SRC) $(GUI_SRC)
+# MAKE SURE $(AI_SRC) IS AT THE END OF THIS LINE!
+COMMON_SRC = $(ENGINE_SRC) $(GAME_SRC) $(GUI_SRC) $(AI_SRC)
 
 # Main executable sources
 SRC = $(COMMON_SRC) main.cpp
@@ -25,8 +28,8 @@ TEST_OBJ = $(TEST_SRC:.cpp=.o)
 
 # --- Compiler Settings ---
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -std=c++20 -O3
-LDFLAGS  = -lsfml-graphics -lsfml-window -lsfml-system
+CXXFLAGS = -Wall -Wextra -Werror -std=c++20 -O3 -I/usr/local/include -I/opt/homebrew/include
+LDFLAGS  = -L/usr/local/lib -L/opt/homebrew/lib -lsfml-graphics -lsfml-window -lsfml-system
 RM = rm -f
 
 # --- Rules ---

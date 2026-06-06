@@ -3,7 +3,7 @@
 #include <iostream>
 
 Renderer::Renderer() : boardColor(220, 179, 92) {
-    if (!font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")) {
+    if (!font.openFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")) {
         std::cerr << "Warning: Font not found!" << std::endl;
     }
 }
@@ -76,10 +76,7 @@ void Renderer::drawUI(sf::RenderWindow& window, const GameSession& session) {
     bool gameOver = session.isGameOver();
 
     auto drawText = [&](const std::string& str, float x, float y, unsigned size, sf::Color color) {
-        sf::Text t;
-        t.setFont(font);
-        t.setString(str);
-        t.setCharacterSize(size);
+        sf::Text t(font,str, size);
         t.setFillColor(color);
         t.setPosition({x, y});
         window.draw(t);

@@ -6,8 +6,14 @@
 
 class GameSession {
 public:
-    GameSession();
+    GameSession(bool playVsAI = true, Cell aiPlayerColor = WHITE);
+    
+    //AI Turn handlers
 
+    bool isAITurn() const;
+    void handleAITurn();
+    
+    
     // Core Interaction
     void handlePlayerMove(int r, int c);
     
@@ -21,7 +27,10 @@ private:
     GameEngine engine;
     Cell currentTurn;
     std::string statusMsg;
-
+    // AI State
+    bool vsAI;
+    Cell aiColor;
+    
     // Internal helpers
     void switchTurn();
     void updateStatusAfterMove();
