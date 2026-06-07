@@ -1,5 +1,4 @@
 #include "MoveGenerator.hpp"
-#include "../engine/Rules.hpp"
 
 bool MoveGenerator::hasAdjacentStone(const Board& board, int r, int c, int distance) {
     for (int dr = -distance; dr <= distance; ++dr) {
@@ -18,25 +17,54 @@ bool MoveGenerator::hasAdjacentStone(const Board& board, int r, int c, int dista
 
 }
 
-std::vector<Point> MoveGenerator::generateMoves(const Board& board, Cell color) {
-    std::vector<Point> moves;
+std::vector<Point> MoveGenerator::generateMoves(GameEngine& engine, Cell color) {
+    const Board& board = engine.getBoard();
+    std::vector<std::pair<int, Point>> scoredMoves;
     bool isEmpty = true;
 
     for (int r = 0; r < BOARD_SIZE; ++r) {
         for (int c = 0; c < BOARD_SIZE; ++c) {
             if (board.getCell(r, c) != EMPTY) {
-                isEmpty = false;
-                continue;
+                isEmpty = false; continue;
             }
-            // Only consider empty cells that are near existing stones
+
             if (hasAdjacentStone(board, r, c, 2) && Rules::isLegalMove(board, r, c, color)) {
-                moves.push_back({r, c});
+                // Score the move!
+                int score = scoreMove(engine, r, c, color);
+                scoredMoves.push_back({score, {r, c}});
             }
         }
     }
-        // Special Case: If the board is completely empty, the best first move is the exact center
-        if (isEmpty) {
-        moves.push_back({9, 9});
+
+    if (isEmpty) return {{9, 9}};
+
+    // SORT: Highest score first (Captures and blocks go to the front!)
+    std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) {
+        return a.first > b.first;
+    });
+
+    // Extract just the points
+    std::vector<Point> sortedMoves;
+    for (const auto& sm : scoredMoves) {
+        sortedMoves.push_back(sm.second);
     }
-    return moves;
+
+    return sortedMoves;
+}
+
+
+int MoveGenerator::scoreMove(GameEngine& engine, int r, int c, Cell color) {
+    int score = 0;
+    try {
+        // Simulate the move
+        MoveResult mv = engine.applyMove(r, c, color);
+        
+        // Reward captures heavily! Alpha-Beta wants to see captures FIRST.
+        score += mv.captured.size() * 1000;
+        
+        engine.undoMove();
+    } catch (...) {
+        return -10000; // Invalid move
+    }
+    return score;
 }
