@@ -1,6 +1,6 @@
 #include "Board.hpp"
 
-Board::Board() : capturedBlack(0), capturedWhite(0) {
+Board::Board() : capturedBlack(0), capturedWhite(0), currentHash(0)  {
     for (int i = 0; i < BOARD_SIZE; i++) {
         for (int j = 0; j < BOARD_SIZE; j++) {
             board[i][j] = EMPTY;
@@ -53,4 +53,8 @@ void Board::print() const {
         std::cout << "\n";
     }
     std::cout << "Captures  B:" << capturedBlack << "  W:" << capturedWhite << "\n";
+}
+
+uint64_t Board::getHash() const {
+    return currentHash;
 }

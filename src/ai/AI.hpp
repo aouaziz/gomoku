@@ -3,6 +3,8 @@
 
 #include "../engine/GameEngine.hpp"
 #include "../core/Types.hpp"
+#include "TranspositionTable.hpp" 
+
 
 #include <limits>
 
@@ -12,7 +14,8 @@ public:
     Point getBestMove(GameEngine& engine, Cell aiColor);
 private:
         int minimax(GameEngine& engine, int depth, int alpha, int beta, bool isMaximizing, Cell aiColor);
-        const int SEARCH_DEPTH = 3; 
+        const int SEARCH_DEPTH = 4; 
+        TranspositionTable tt; 
     
 };
 

@@ -3,6 +3,7 @@
 
 #include "../core/Types.hpp"
 #include <iostream>
+#include "Zobrist.hpp" 
 
 class Board {
 public:
@@ -20,11 +21,16 @@ public:
 
     // Debugging
     void print() const;
+    
+    // Zobrist Hashing
+    uint64_t getHash() const;
+
 
 private:
     Cell board[BOARD_SIZE][BOARD_SIZE];
     int capturedBlack;
     int capturedWhite;
+    uint64_t currentHash;
 };
 
 #endif // BOARD_HPP

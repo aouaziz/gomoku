@@ -40,15 +40,27 @@ Point AI::getBestMove(GameEngine& engine, Cell aiColor){
 }
 
 int AI::minimax(GameEngine& engine, int depth, int alpha, int beta, bool isMaximizing, Cell aiColor) {
+    uint64_t boardHash = engine.getBoard().getHash();
+    int ttValue;
+
+    // 1. CACHE LOOKUP: Did we already calculate this board state?
+    if (tt.lookup(boardHash, depth, alpha, beta, ttValue)) {
+        return ttValue; // INSTANT RETURN! Saved thousands of calculations!
+    }
+
     if (depth == 0 || engine.isGameOver()) {
-        return Evaluator::evaluate(engine.getBoard(), aiColor);
+        int eval = Evaluator::evaluate(engine.getBoard(), aiColor);
+        // Cache the exact evaluation
+        tt.store(boardHash, depth, eval, HashFlag::EXACT); 
+        return eval;   
     }
 
     Cell currentColor = isMaximizing ? aiColor : getOpponent(aiColor);
     std::vector<Point> candidates = MoveGenerator::generateMoves(engine.getBoard(), currentColor);
     
     int bestEval = isMaximizing ? -INF : INF;
-
+    int originalAlpha = alpha;
+    
     for (const Point& move : candidates) {
         try {
             engine.applyMove(move.row, move.col, currentColor);
@@ -73,6 +85,14 @@ int AI::minimax(GameEngine& engine, int depth, int alpha, int beta, bool isMaxim
             continue; // Skip forbidden moves
         }
     }
+
+    // 2. CACHE STORE: Save what we learned so we don't calculate it again
+    HashFlag flag = HashFlag::EXACT;
+    if (bestEval <= originalAlpha) flag = HashFlag::ALPHA;
+    else if (bestEval >= beta)     flag = HashFlag::BETA;
+
+    tt.store(boardHash, depth, bestEval, flag);
+
     return bestEval;
 }
 

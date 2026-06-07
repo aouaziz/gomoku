@@ -14,7 +14,10 @@ GUI_SRC    = src/gui/InputHandler.cpp \
 
 AI_SRC     = src/ai/AI.cpp \
 			 src/ai/MoveGenerator.cpp \
-			 src/ai/Evaluator.cpp
+			 src/ai/Evaluator.cpp	\
+			 src/engine/Zobrist.cpp \
+			 src/ai/TranspositionTable.cpp
+
 
 # --- Combined Sources ---
 # MAKE SURE $(AI_SRC) IS AT THE END OF THIS LINE!
