@@ -3,20 +3,30 @@
 
 #include "../engine/Board.hpp"
 #include "../core/Types.hpp"
-#include "../engine/Rules.hpp"
-#include "../engine/GameEngine.hpp"
-#include <algorithm>
+#include <vector>
+
+// Reduces the 361 board intersections to a small set of relevant candidate
+// moves and scores them cheaply (no board mutation, no full-board scans) so the
+// alpha-beta search can try the most promising moves first.
 class MoveGenerator {
 public:
-    // Returns a list of sensible, legal moves to evaluate
-    static std::vector<Point> generateMoves(GameEngine& engine, Cell color);
+    // Empty cells within `radius` (Chebyshev distance) of any existing stone.
+    // These are the only moves worth considering in Gomoku.
+    static std::vector<Point> candidates(const Board& board, int radius = 2);
+
+    // Same, but fills a caller-owned buffer to avoid per-node heap allocation.
+    static void candidates(const Board& board, int radius, std::vector<Point>& out);
+
+    // Cheap tactical score used purely for move ordering. Higher = try sooner.
+    // Rewards creating captures, extending our own lines, and blocking the
+    // opponent's lines. Does NOT mutate the board.
+    static int staticScore(const Board& board, int r, int c, Cell color);
 
 private:
-    // Helper to check if an empty cell is near an existing stone
-    static bool hasAdjacentStone(const Board& board, int r, int c, int distance);
-    // Quick evaluation to sort moves
-    static int scoreMove(GameEngine& engine, int r, int c, Cell color);
-
+    // Count consecutive `who` stones starting just past (r,c) along (dr,dc).
+    static int countDir(const Board& board, int r, int c, int dr, int dc, Cell who);
+    // Maps a run length around a placed stone to an ordering weight.
+    static int lineWeight(int runLength, int openEnds);
 };
 
 #endif // MOVEGENERATOR_HPP

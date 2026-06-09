@@ -6,6 +6,11 @@ const Board& GameEngine::getBoard() const { return board; }
 bool GameEngine::isGameOver() const { return gameOver; }
 Cell GameEngine::getWinner() const { return winner; }
 std::string GameEngine::getWinReason() const { return winReason; }
+bool GameEngine::hasLastMove() const { return !history.empty(); }
+Point GameEngine::getLastMove() const {
+    if (history.empty()) return Point{-1, -1};
+    return history.back().placed;
+}
 
 MoveResult GameEngine::applyMove(int r, int c, Cell color) {
     if (gameOver) {
@@ -44,8 +49,8 @@ MoveResult GameEngine::applyMove(int r, int c, Cell color) {
     return mv;
 }
 
-void GameEngine::undoMove() {
-    if (history.empty()) return;
+MoveResult GameEngine::undoMove() {
+    if (history.empty()) return MoveResult{ {-1, -1}, EMPTY, {} };
 
     MoveResult lastMove = history.back();
     history.pop_back();
@@ -66,6 +71,8 @@ void GameEngine::undoMove() {
     gameOver = false;
     winner = EMPTY;
     winReason = "";
+
+    return lastMove;
 }
 
 void GameEngine::checkWinConditions(Cell lastColor) {

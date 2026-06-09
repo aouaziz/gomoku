@@ -24,7 +24,7 @@ This engine acts as a **strict referee**, enforcing the full professional Gomoku
 | **5-in-a-row** | Align 5 or more stones in any direction to win. |
 | **Capture Victory** | Capture 10 of the opponent's stones (5 pairs) to win. |
 | **Capture Mechanic** | Flank a pair of opponent stones on both sides to capture them. |
-| **Breakable Five** | A 5-in-a-row does **not** immediately win if the opponent can capture a stone from that line on their very next turn. |
+| **Breakable Five** | A 5-in-a-row does **not** immediately win if, on the very next turn, the opponent can either capture a stone out of that line **or** capture their 5th pair (reaching 10 captures). |
 | **Double-Three Rule** | A player **cannot** place a stone that simultaneously creates two or more open-threes — *unless* that same move also captures opponent stones. |
 
 ---
@@ -46,7 +46,12 @@ Every board state is fingerprinted with a unique **64-bit integer** via XOR bitw
 Candidate moves are sorted before evaluation — captures and threats are explored first. This dramatically improves Alpha-Beta pruning efficiency, yielding roughly a **10× speedup**.
 
 ### Iterative Deepening
-The AI searches at depth 1, then 2, then 3... When the **0.45s timer** fires, it immediately aborts the current search and returns the best move found at the last *completed* depth — guaranteeing a response is always ready on time.
+The AI searches at depth 1, then 2, then 3... When the **~420ms timer** fires, it immediately aborts the current search (via an exception that unwinds cleanly) and returns the best move found at the last *completed* depth — guaranteeing a response is always ready well under the 0.5s limit.
+
+### Principal Variation Search & Late Move Reductions
+On top of plain alpha-beta, later moves are first probed with a **null window** (PVS) and quiet, low-ranked moves are searched at **reduced depth** (LMR), with a full re-search only when one unexpectedly beats the current best. These are what let the nominal search reach **depth 9–10** within the time budget — tactical/forcing positions routinely hit 10.
+
+> The search is implemented as **negamax** (a single-perspective formulation of Min-Max where each node negates the child score), with alpha-beta pruning, PVS, LMR, a transposition table, and killer-move / history move ordering.
 
 ---
 
@@ -112,9 +117,10 @@ make
 
 **Play:**
 ```bash
-./gomoku
+./Gomoku
 ```
-> By default, the human plays as **Black** (first move) and the AI plays as **White**.
+> **Flow:** Title screen → **Start Game** → pick **Mode** (vs AI / Hotseat) → if vs AI, choose **difficulty + your color** → play.
+> During a game the bottom bar shows the AI's last move-time, the top-left shows **whose turn** it is, the last stone is ringed in red, and the **? CONTROLS** button (top-right) lists every shortcut.
 
 **Run the rule-validation test suite:**
 ```bash
@@ -129,12 +135,48 @@ make fclean   # Removes object files and executables
 
 ---
 
+## 🎮 Controls (cheat-sheet)
+
+| Input | Action |
+|---|---|
+| **Mouse (left click)** | Navigate menus / place a stone |
+| **Enter** | Start (on the title screen) |
+| **`H`** | Suggest a move (hint, shown — not played) |
+| **`U`** | Undo |
+| **`Y`** | Redo |
+| **`T`** | Toggle Dark / Light theme (works on every screen) |
+| **`R`** | Return to the main menu |
+| **Esc** | Go back one menu step |
+| **`E` / `M` / `D`** | Easy / Medium / Hard (on the AI-setup screen) |
+| **? CONTROLS** (top-right button) | Open/close the in-game controls overlay |
+
+> All bonus code is tagged in the source with a `// BONUS (...)` comment — run `grep -rn "BONUS" src/` to find every one.
+
+## ✨ Bonuses (detailed)
+
+**1. AI difficulty selector.** On the *AI setup* screen you choose **Easy / Medium / Hard**, which maps to the AI's per-move time budget (**100 / 250 / 420 ms**). A larger budget lets iterative deepening finish more plies, so the AI literally thinks further ahead on higher difficulty. The choice flows `GameWindow → GameSession::setAITime → AI::setTimeLimit`, where `timeIsUp()` enforces it.
+*Test:* pick Easy vs Hard and watch the “AI last move: N ms” field and the `Depth N done` lines in the terminal — Hard reaches deeper depths.
+
+**2. Undo (`U`).** Takes back the last move, fully restoring captured stones and the capture counter. In **vs-AI** mode it rewinds a whole round (the AI's reply *and* your move) so it's your turn again; in **hotseat** it rewinds one ply. `GameEngine::undoMove()` returns the undone move so the session can restore whose turn it is.
+*Test:* set up a capture, undo, and confirm the captured pair reappears and the counter drops back.
+
+**3. Redo (`Y`).** Re-applies moves you just undid (mirroring undo's one-ply / one-round behavior). Undone moves are kept on a redo stack that is cleared the moment you make a new move, so you can't redo into an abandoned line.
+*Test:* undo a move, press `Y` to bring it back; then undo, play elsewhere, and note that `Y` now does nothing.
+
+**4. Dark / Light theme (`T`).** Re-skins the entire board — background, grid lines, hoshi dots, text, and stone outlines — between a light wood theme and a dark slate theme. Works on the menus too.
+*Test:* press `T` repeatedly on any screen.
+
+**5. Last-move marker.** The most recently placed stone is ringed in **red**, so it's obvious what just happened (especially after the AI moves). *(The separate green ring is the `H` move-suggestion.)*
+*Test:* play any move — a red ring appears on it and follows the latest stone.
+
+> Plus quality-of-life UI: a **gamer-style multi-screen menu**, a **turn indicator** (colored stone + label) top-left, and the **? CONTROLS** overlay.
+
 ## 🔮 Roadmap
 
-- [ ] SFML main menu with **Player vs Player** and **Player vs AI** mode selection, including color choice
-- [ ] Visual indicator highlighting the **last move played**
 - [ ] Expanded Evaluator heuristics to recognize split threats (e.g., broken 3-in-a-row)
+- [ ] Alternative opening rules (Pro / Swap / Swap2)
+- [ ] Highlight the winning five stones on game over
 
 ---
 
-<p align="center">Built with C++20 · SFML 3 · Minimax · Alpha-Beta Pruning</p>
+<p align="center">Built with C++20 · SFML 3 · Negamax · Alpha-Beta · PVS · LMR · Transposition Table</p>

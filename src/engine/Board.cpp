@@ -15,7 +15,12 @@ Cell Board::getCell(int r, int c) const {
 
 void Board::setCell(int r, int c, Cell cell) {
     if (inBounds(r, c)) {
+        // Incrementally update the Zobrist hash:
+        // XOR out whatever was here, then XOR in the new content.
+        // (EMPTY's key is 0, so placing onto / clearing to empty is handled too.)
+        currentHash ^= Zobrist::getKey(r, c, board[r][c]);
         board[r][c] = cell;
+        currentHash ^= Zobrist::getKey(r, c, cell);
     }
 }
 

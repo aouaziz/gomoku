@@ -79,14 +79,24 @@ bool Rules::checkIfCorrectFive(const Board& board, int r, int c, Cell opponentCo
     // We simulate the opponent placing a piece to capture
     Board simBoard = board;
     simBoard.setCell(r, c, opponentColor);
-    
+
     std::vector<Point> caps = checkCaptures(simBoard, r, c, opponentColor);
+    if (caps.empty()) return false; // a move that captures nothing can't refute the five
+
     for (const auto& p : caps) {
         simBoard.setCell(p.row, p.col, EMPTY); // Apply the capture removal
     }
-    
-    // If the winner no longer has 5, the 5 was breakable!
-    return !hasFive(simBoard, winnerColor);
+
+    // The five is refuted (game continues / opponent wins) if this capturing move
+    // either:
+    //   (a) breaks the alignment so the winner no longer has five, OR
+    //   (b) brings the opponent to ten captures (five pairs) — per the subject's
+    //       endgame-capture rule, a capture win takes priority even if the line
+    //       itself stays intact.
+    if (!hasFive(simBoard, winnerColor)) return true;
+    if (board.getCaptures(opponentColor) + (int)caps.size() >= 10) return true;
+
+    return false;
 }
 
 bool Rules::isFiveBreakable(const Board& board, Cell winnerColor) {

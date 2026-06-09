@@ -1,140 +1,280 @@
 #include "AI.hpp"
 #include "MoveGenerator.hpp"
 #include "Evaluator.hpp"
+#include "../engine/Rules.hpp"
 #include <iostream>
 #include <algorithm>
+#include <limits>
 
-const int INF = std::numeric_limits<int>::max();
-const int MAX_TIME_MS = 450; // 0.45 seconds limit
+namespace {
+    const int INF        = 1000000000;
+    const int WIN_SCORE  = 10000000;   // well above any heuristic evaluation
+
+    // How many candidate moves to keep per node after ordering. A tight cap is
+    // what lets alpha-beta reach deep plies inside the time budget.
+    const int ROOT_CAP   = 16;
+    const int INNER_CAP  = 10;
+
+    const int DIR8_DR[8] = {-1, -1, -1,  0, 0,  1, 1, 1};
+    const int DIR8_DC[8] = {-1,  0,  1, -1, 1, -1, 0, 1};
+}
 
 long long AI::getElapsedTime() const {
     auto now = std::chrono::steady_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
 }
-bool AI::timeIsUp() const {
-    return getElapsedTime() >= MAX_TIME_MS;
+
+bool AI::timeIsUp() {
+    // Calling steady_clock::now() on every node is itself expensive, so only
+    // actually read the clock once every 2048 nodes.
+    if ((++nodeCount & 2047) != 0) return false;
+    return getElapsedTime() >= maxTimeMs;
 }
 
-Point AI::getBestMove(GameEngine& engine, Cell aiColor) {
-    startTime = std::chrono::steady_clock::now();
-    
-    // We generate moves from the ENGINE now
-    std::vector<Point> candidates = MoveGenerator::generateMoves(engine, aiColor);
-    if (candidates.empty()) return Point{BOARD_SIZE / 2, BOARD_SIZE / 2};
+// --- Fast incremental make/undo (mirrors the engine's capture rule) ----------
 
-    Point bestMoveOverall = candidates[0];
-    int currentDepth = 1;
+bool AI::applySearchMove(Board& b, int r, int c, Cell color, Undo& u) {
+    Cell opp = getOpponent(color);
+    u.r = r; u.c = c; u.color = color; u.nCaps = 0;
 
-    std::cout << "AI is thinking..." << std::endl;
+    b.setCell(r, c, color);
 
-    // ITERATIVE DEEPENING LOOP
-    try {
-        while (currentDepth <= 10) { // Max safeguard depth
-            Point bestMoveForThisDepth = candidates[0];
-            int bestScore = -INF;
-
-            for (const Point& move : candidates) {
-                if (timeIsUp()) throw TimeOutException(); // Abort!
-
-                // 1. Try to apply the move
-                try {
-                    engine.applyMove(move.row, move.col, aiColor);
-                } catch (const std::invalid_argument&) {
-                    continue; // Skip invalid moves
-                }
-
-                // 2. Safely run minimax and guarantee cleanup
-                try {
-                    int score = minimax(engine, currentDepth - 1, -INF, INF, false, aiColor);
-                    engine.undoMove(); // Clean up normally
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMoveForThisDepth = move;
-                    }
-                } catch (const TimeOutException& e) {
-                    engine.undoMove(); // EMERGENCY CLEANUP before panicking!
-                    throw e;           // Re-throw to break out of Iterative Deepening
-                }
-            }
-
-
-            // If we completed this depth without timing out, save the result!
-            bestMoveOverall = bestMoveForThisDepth;
-            std::cout << "[Time: " << getElapsedTime() << " ms] Depth " 
-                    << currentDepth << " completed. Best move: (" << bestMoveOverall.row << "," 
-                            << bestMoveOverall.col << ") Score: " << bestScore << std::endl;
-            
-            // If we found a guaranteed win, stop searching!
-            if (bestScore > 90000) break;
-
-            currentDepth++;
+    // Capture any flanked opponent pairs around the placed stone.
+    for (int d = 0; d < 8; ++d) {
+        int r1 = r + DIR8_DR[d],     c1 = c + DIR8_DC[d];
+        int r2 = r + 2 * DIR8_DR[d], c2 = c + 2 * DIR8_DC[d];
+        int r3 = r + 3 * DIR8_DR[d], c3 = c + 3 * DIR8_DC[d];
+        if (b.inBounds(r3, c3) &&
+            b.getCell(r1, c1) == opp &&
+            b.getCell(r2, c2) == opp &&
+            b.getCell(r3, c3) == color) {
+            b.setCell(r1, c1, EMPTY);
+            b.setCell(r2, c2, EMPTY);
+            u.caps[u.nCaps++] = {r1, c1};
+            u.caps[u.nCaps++] = {r2, c2};
         }
-    } 
-    catch (const TimeOutException&) {
-            std::cout << "[Time: " << getElapsedTime() << " ms] Time limit reached! Aborted depth " 
-              << currentDepth << "." << std::endl;    }
+    }
+    if (u.nCaps > 0) b.addCaptures(color, u.nCaps);
 
-    return bestMoveOverall;
+    // Immediate win: 5-in-a-row through the placed stone, or 10 captures.
+    if (b.getCaptures(color) >= 10) return true;
+    return Rules::hasFiveAt(b, r, c, color);
 }
 
-int AI::minimax(GameEngine& engine, int depth, int alpha, int beta, bool isMaximizing, Cell aiColor) {
-    if (timeIsUp()) throw TimeOutException(); // Abort deep recursion!
+void AI::undoSearchMove(Board& b, const Undo& u) {
+    if (u.nCaps > 0) {
+        b.removeCaptures(u.color, u.nCaps);
+        Cell opp = getOpponent(u.color);
+        for (int i = 0; i < u.nCaps; ++i)
+            b.setCell(u.caps[i].row, u.caps[i].col, opp);
+    }
+    b.setCell(u.r, u.c, EMPTY);
+}
 
-    uint64_t boardHash = engine.getBoard().getHash();
+// --- Move ordering ------------------------------------------------------------
+
+void AI::orderMoves(const Board& b, std::vector<Point>& moves, Cell color,
+                    int ply, Point ttMove, int cap) {
+    Point k0 = (ply < MAX_PLY) ? killers[ply][0] : Point{-1, -1};
+    Point k1 = (ply < MAX_PLY) ? killers[ply][1] : Point{-1, -1};
+
+    static thread_local std::vector<std::pair<int, Point>> scored;
+    scored.clear();
+    for (const Point& m : moves) {
+        int s = MoveGenerator::staticScore(b, m.row, m.col, color);
+        if (m.row == ttMove.row && m.col == ttMove.col) s += 100000000; // PV move first
+        else if ((m.row == k0.row && m.col == k0.col) ||
+                 (m.row == k1.row && m.col == k1.col)) s += 5000000;    // killers
+        s += historyTable[m.row][m.col];
+        scored.push_back({s, m});
+    }
+
+    std::sort(scored.begin(), scored.end(),
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    int keep = std::min((int)scored.size(), cap);
+    moves.resize(keep);
+    for (int i = 0; i < keep; ++i) moves[i] = scored[i].second;
+}
+
+// --- Negamax search -----------------------------------------------------------
+
+int AI::negamax(Board& b, int depth, int ply, int alpha, int beta, Cell color) {
+    if (timeIsUp()) throw TimeOutException();
+
+    // Transposition table probe (key encodes stones + side-to-move + captures).
+    uint64_t key = b.getHash();
+    key ^= (uint64_t)b.getCaptures(BLACK) * 0x9E3779B97F4A7C15ULL;
+    key ^= (uint64_t)b.getCaptures(WHITE) * 0xC2B2AE3D27D4EB4FULL;
+    if (color == WHITE) key ^= Zobrist::getSideKey();
+
     int ttValue;
-
-    if (tt.lookup(boardHash, depth, alpha, beta, ttValue)) {
+    Point ttMove{-1, -1};
+    if (tt.probe(key, depth, alpha, beta, ttValue, ttMove)) {
         return ttValue;
     }
 
-    if (depth == 0 || engine.isGameOver()) {
-        int eval = Evaluator::evaluate(engine.getBoard(), aiColor);
-        tt.store(boardHash, depth, eval, HashFlag::EXACT);
-        return eval;
+    if (depth <= 0) {
+        return Evaluator::evaluate(b, color);
     }
 
-    Cell currentColor = isMaximizing ? aiColor : getOpponent(aiColor);
-    // Pass engine to generator
-    std::vector<Point> candidates = MoveGenerator::generateMoves(engine, currentColor);
-    
-    int bestEval = isMaximizing ? -INF : INF;
+    // Wider neighbourhood near the root (don't miss tactical jumps); tighter
+    // deeper down so the branching factor stays small and we reach depth.
+    int radius = (ply <= 1) ? 2 : 1;
+    std::vector<Point>& moves = moveBuf[ply < MAX_PLY ? ply : MAX_PLY - 1];
+    MoveGenerator::candidates(b, radius, moves);
+    if (moves.empty()) return Evaluator::evaluate(b, color);
+    orderMoves(b, moves, color, ply, ttMove, INNER_CAP);
+
     int originalAlpha = alpha;
+    int bestScore = -INF;
+    Point bestMove = moves[0];
+    Cell opp = getOpponent(color);
+    int moveIndex = 0;
 
-for (const Point& move : candidates) {
-        // 1. Try to apply the move
-        try {
-            engine.applyMove(move.row, move.col, currentColor);
-        } catch (const std::invalid_argument&) {
-            continue; // Skip invalid moves
-        }
+    for (const Point& m : moves) {
+        Undo u;
+        bool won = applySearchMove(b, m.row, m.col, color, u);
 
-        // 2. Safely recurse and guarantee cleanup
-        try {
-            int eval = minimax(engine, depth - 1, alpha, beta, !isMaximizing, aiColor);
-            engine.undoMove(); // Clean up normally
-
-            if (isMaximizing) {
-                bestEval = std::max(bestEval, eval);
-                alpha = std::max(alpha, eval);
-            } else {
-                bestEval = std::min(bestEval, eval);
-                beta = std::min(beta, eval);
+        int score;
+        if (won) {
+            score = WIN_SCORE + depth; // prefer faster wins (more depth left)
+        } else if (moveIndex == 0) {
+            // Search the principal variation move at full depth and width.
+            score = -negamax(b, depth - 1, ply + 1, -beta, -alpha, opp);
+        } else {
+            // Late Move Reductions: quiet moves ordered late are unlikely to be
+            // best, so search them shallower first and only re-search at full
+            // depth if they unexpectedly beat alpha. This is what lets the
+            // nominal search depth reach 10+ inside the time budget.
+            int reduction = 0;
+            if (depth >= 3 && moveIndex >= 2 && u.nCaps == 0) {
+                reduction = 1;
+                if (moveIndex >= 4) reduction = 2;
+                if (moveIndex >= 8) reduction = depth / 3 + 1;
+                if (reduction > depth - 1) reduction = depth - 1; // keep depth >= 0
             }
+            // Null-window probe (PVS), possibly reduced.
+            score = -negamax(b, depth - 1 - reduction, ply + 1, -alpha - 1, -alpha, opp);
+            // Re-search at full depth/width if it looks like it could be best.
+            if (score > alpha && (reduction > 0 || score < beta)) {
+                score = -negamax(b, depth - 1, ply + 1, -beta, -alpha, opp);
+            }
+        }
+        undoSearchMove(b, u);
+        ++moveIndex;
 
-            if (beta <= alpha) break; // Alpha-Beta Pruning
-            
-        } catch (const TimeOutException& e) {
-            engine.undoMove(); // EMERGENCY CLEANUP before panicking!
-            throw e;           // Re-throw to bubble up the timeout
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = m;
+        }
+        if (score > alpha) alpha = score;
+        if (alpha >= beta) {
+            // Beta cutoff: remember this quiet move as a killer / history move.
+            if (ply < MAX_PLY) {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = m;
+            }
+            historyTable[m.row][m.col] += depth * depth;
+            break;
         }
     }
 
     HashFlag flag = HashFlag::EXACT;
-    if (bestEval <= originalAlpha) flag = HashFlag::ALPHA;
-    else if (bestEval >= beta)     flag = HashFlag::BETA;
+    if (bestScore <= originalAlpha)      flag = HashFlag::ALPHA;
+    else if (bestScore >= beta)          flag = HashFlag::BETA;
+    tt.store(key, depth, bestScore, flag, bestMove);
 
-    tt.store(boardHash, depth, bestEval, flag);
+    return bestScore;
+}
 
-    return bestEval;
+// --- Root: iterative deepening ------------------------------------------------
+
+Point AI::getBestMove(GameEngine& engine, Cell aiColor) {
+    startTime = std::chrono::steady_clock::now();
+    nodeCount = 0;
+
+    for (int i = 0; i < MAX_PLY; ++i) killers[i][0] = killers[i][1] = {-1, -1};
+    for (int r = 0; r < BOARD_SIZE; ++r)
+        for (int c = 0; c < BOARD_SIZE; ++c)
+            historyTable[r][c] = 0;
+
+    // Work on a private copy of the board so the live game is never touched.
+    Board board = engine.getBoard();
+    Cell opp = getOpponent(aiColor);
+
+    // Build the root move list once: only fully-legal moves (double-three rule)
+    // so the move we ultimately return is guaranteed playable by the engine.
+    std::vector<Point> rawRoot = MoveGenerator::candidates(board);
+    std::vector<Point> rootMoves;
+    for (const Point& m : rawRoot) {
+        if (Rules::isLegalMove(board, m.row, m.col, aiColor))
+            rootMoves.push_back(m);
+    }
+    if (rootMoves.empty()) {
+        if (!rawRoot.empty()) return rawRoot[0];
+        return Point{BOARD_SIZE / 2, BOARD_SIZE / 2};
+    }
+
+    Point bestMoveOverall = rootMoves[0];
+    std::cout << "AI is thinking..." << std::endl;
+
+    try {
+        for (int depth = 1; depth <= MAX_PLY; ++depth) {
+            // Order root moves, seeding the best move from the previous iteration.
+            orderMoves(board, rootMoves, aiColor, 0, bestMoveOverall, ROOT_CAP);
+
+            int alpha = -INF, beta = INF;
+            int bestScore = -INF;
+            Point bestThisDepth = rootMoves[0];
+            int moveIndex = 0;
+
+            for (const Point& m : rootMoves) {
+                Undo u;
+                bool won = applySearchMove(board, m.row, m.col, aiColor, u);
+                int score;
+                if (won) {
+                    score = WIN_SCORE + depth;
+                } else if (moveIndex == 0) {
+                    score = -negamax(board, depth - 1, 1, -beta, -alpha, opp);
+                } else {
+                    // PVS + LMR at the root as well (the PV move from the
+                    // previous iteration is already searched first).
+                    int reduction = 0;
+                    if (depth >= 3 && moveIndex >= 3 && u.nCaps == 0) {
+                        reduction = 1 + (moveIndex >= 8 ? 1 : 0);
+                    }
+                    score = -negamax(board, depth - 1 - reduction, 1, -alpha - 1, -alpha, opp);
+                    if (score > alpha) {
+                        score = -negamax(board, depth - 1, 1, -beta, -alpha, opp);
+                    }
+                }
+                undoSearchMove(board, u);
+                ++moveIndex;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestThisDepth = m;
+                }
+                if (score > alpha) alpha = score;
+            }
+
+            // Completed this depth without timing out: commit the result.
+            bestMoveOverall = bestThisDepth;
+            std::cout << "[Time: " << getElapsedTime() << " ms] Depth " << depth
+                      << " done. Best: (" << bestMoveOverall.row << ","
+                      << bestMoveOverall.col << ") Score: " << bestScore
+                      << " Nodes: " << nodeCount << std::endl;
+
+            // Forced win/loss found: no point searching deeper.
+            if (bestScore >= WIN_SCORE || bestScore <= -WIN_SCORE) break;
+            // Otherwise keep deepening; if the next depth runs over budget the
+            // TimeOutException simply returns this (already committed) result.
+        }
+    } catch (const TimeOutException&) {
+        std::cout << "[Time: " << getElapsedTime() << " ms] Time limit reached. "
+                  << "Using best move from last completed depth." << std::endl;
+    }
+
+    return bestMoveOverall;
 }

@@ -1,4 +1,4 @@
-NAME = gomoku
+NAME = Gomoku
 TEST_NAME = run_tests
 
 # --- Directory Modules ---
@@ -33,9 +33,13 @@ TEST_OBJ = $(TEST_SRC:.cpp=.o)
 
 # --- Compiler Settings ---
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -std=c++20 -O3 -I/usr/local/include -I/opt/homebrew/include
+CXXFLAGS = -Wall -Wextra -Werror -std=c++20 -O3 -MMD -MP -I/usr/local/include -I/opt/homebrew/include
 LDFLAGS  = -L/usr/local/lib -L/opt/homebrew/lib -lsfml-graphics -lsfml-window -lsfml-system
 RM = rm -f
+
+# Auto-generated header dependency files (so editing a .hpp triggers a rebuild
+# of exactly the objects that need it — and nothing relinks otherwise).
+DEPS = $(OBJ:.o=.d) $(TEST_OBJ:.o=.d)
 
 # --- Rules ---
 all: $(NAME)
@@ -48,11 +52,13 @@ test: $(TEST_OBJ)
 	./$(TEST_NAME)
 
 clean:
-	$(RM) $(OBJ) $(TEST_OBJ)
+	$(RM) $(OBJ) $(TEST_OBJ) $(DEPS)
 
 fclean: clean
 	$(RM) $(NAME) $(TEST_NAME)
 
 re: fclean all
+
+-include $(DEPS)
 
 .PHONY: all clean fclean re test

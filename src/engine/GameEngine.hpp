@@ -13,13 +13,18 @@ public:
 
     // Core Actions
     MoveResult applyMove(int r, int c, Cell color);
-    void undoMove(); // critical for AI
+    // Reverts the most recent move and returns it (color == EMPTY if none).
+    // BONUS (Undo/Redo): returning the move lets GameSession restore the turn
+    // and stack it for redo.
+    MoveResult undoMove();
 
     // State accessors
     const Board& getBoard() const;
     bool isGameOver() const;
     Cell getWinner() const;
     std::string getWinReason() const;
+    bool hasLastMove() const;
+    Point getLastMove() const; // the most recently placed stone
 
 private:
     Board board;

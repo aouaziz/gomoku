@@ -1,6 +1,7 @@
 #include "Zobrist.hpp"
 
 uint64_t Zobrist::keys[BOARD_SIZE][BOARD_SIZE][3];
+uint64_t Zobrist::sideKey = 0;
 
 void Zobrist::init() {
     // 64-bit random number generator
@@ -13,8 +14,13 @@ void Zobrist::init() {
             keys[r][c][WHITE] = rng();
         }
     }
+    sideKey = rng();
 }
 
 uint64_t Zobrist::getKey(int r, int c, Cell color) {
     return keys[r][c][color];
+}
+
+uint64_t Zobrist::getSideKey() {
+    return sideKey;
 }
