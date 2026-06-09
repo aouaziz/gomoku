@@ -120,7 +120,7 @@ make
 ./Gomoku
 ```
 > **Flow:** Title screen → **Start Game** → pick **Mode** (vs AI / Hotseat) → if vs AI, choose **difficulty + your color** → play.
-> During a game the bottom bar shows the AI's last move-time, the top-left shows **whose turn** it is, the last stone is ringed in red, and the **? CONTROLS** button (top-right) lists every shortcut.
+> During a game the bottom bar shows the AI's last move-time, the **top-center** shows **whose turn** it is, the last stone is ringed in red, and the **☰ menu icon** (top-left) opens a list of every shortcut.
 
 **Run the rule-validation test suite:**
 ```bash
@@ -145,10 +145,10 @@ make fclean   # Removes object files and executables
 | **`U`** | Undo |
 | **`Y`** | Redo |
 | **`T`** | Toggle Dark / Light theme (works on every screen) |
-| **`R`** | Return to the main menu |
 | **Esc** | Go back one menu step |
+| **Back to Menu** (button) | Returns to the title screen on the Game Over screen |
 | **`E` / `M` / `D`** | Easy / Medium / Hard (on the AI-setup screen) |
-| **? CONTROLS** (top-right button) | Open/close the in-game controls overlay |
+| **☰ menu icon** (top-left button) | Open/close the in-game controls overlay |
 
 > All bonus code is tagged in the source with a `// BONUS (...)` comment — run `grep -rn "BONUS" src/` to find every one.
 
@@ -158,6 +158,7 @@ make fclean   # Removes object files and executables
 *Test:* pick Easy vs Hard and watch the “AI last move: N ms” field and the `Depth N done` lines in the terminal — Hard reaches deeper depths.
 
 **2. Undo (`U`).** Takes back the last move, fully restoring captured stones and the capture counter. In **vs-AI** mode it rewinds a whole round (the AI's reply *and* your move) so it's your turn again; in **hotseat** it rewinds one ply. `GameEngine::undoMove()` returns the undone move so the session can restore whose turn it is.
+> Note: undo can rewind all the way to the start, so it doubles as a "restart current game" if you keep pressing it.
 *Test:* set up a capture, undo, and confirm the captured pair reappears and the counter drops back.
 
 **3. Redo (`Y`).** Re-applies moves you just undid (mirroring undo's one-ply / one-round behavior). Undone moves are kept on a redo stack that is cleared the moment you make a new move, so you can't redo into an abandoned line.
@@ -169,7 +170,7 @@ make fclean   # Removes object files and executables
 **5. Last-move marker.** The most recently placed stone is ringed in **red**, so it's obvious what just happened (especially after the AI moves). *(The separate green ring is the `H` move-suggestion.)*
 *Test:* play any move — a red ring appears on it and follows the latest stone.
 
-> Plus quality-of-life UI: a **gamer-style multi-screen menu**, a **turn indicator** (colored stone + label) top-left, and the **? CONTROLS** overlay.
+> Plus quality-of-life UI: a **gamer-style multi-screen menu**, a large **turn indicator** (colored stone + label) at top-center, and a **☰ menu icon** (top-left) that opens a controls overlay.
 
 ## 🔮 Roadmap
 

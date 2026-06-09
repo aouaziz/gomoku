@@ -30,7 +30,8 @@ public:
     static sf::FloatRect btnColorWhite();
     static sf::FloatRect btnAIStart();
     static sf::FloatRect btnAIBack();
-    static sf::FloatRect btnHelp();      // in-game "controls" button
+    static sf::FloatRect btnHelp();          // in-game "controls" button
+    static sf::FloatRect btnGameOverMenu();  // "back to menu" on the game-over screen
 
 private:
     sf::Font font;
@@ -61,6 +62,7 @@ private:
     void drawUI(sf::RenderWindow& window, const GameSession& session);
     void drawHelpButton(sf::RenderWindow& window);
     void drawHelpOverlay(sf::RenderWindow& window);
+    void drawGameOverOverlay(sf::RenderWindow& window, const GameSession& session);
 };
 
 #endif // RENDERER_HPP

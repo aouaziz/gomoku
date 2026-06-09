@@ -112,7 +112,6 @@ void GameWindow::onPlayingEvent(const sf::Event& event, const sf::Vector2f& clic
 
     if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
         switch (key->code) {
-            case K::R: state = AppState::Title; break;                              // back to menu
             case K::H: if (!session.isAITurn()) session.requestSuggestion(); break; // suggestion
             // ===== BONUS (Undo / Redo) =====
             case K::U: if (session.canUndo()) session.undo(); break;
@@ -123,6 +122,12 @@ void GameWindow::onPlayingEvent(const sf::Event& event, const sf::Vector2f& clic
     }
 
     if (!clicked) return;
+
+    // Game-over screen: the only action is returning to the main menu.
+    if (session.isGameOver()) {
+        if (Renderer::btnGameOverMenu().contains(click)) state = AppState::Title;
+        return;
+    }
 
     // ===== BONUS (controls help): the on-screen button toggles the overlay =====
     if (Renderer::btnHelp().contains(click)) { showHelp = !showHelp; return; }

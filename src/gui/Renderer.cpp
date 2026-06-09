@@ -122,7 +122,8 @@ sf::FloatRect Renderer::btnColorBlack()   { return {{175.f, 430.f}, {210.f, 64.f
 sf::FloatRect Renderer::btnColorWhite()   { return {{415.f, 430.f}, {210.f, 64.f}}; }
 sf::FloatRect Renderer::btnAIStart()      { return {{210.f, 560.f}, {380.f, 74.f}}; }
 sf::FloatRect Renderer::btnAIBack()       { return {{300.f, 656.f}, {200.f, 46.f}}; }
-sf::FloatRect Renderer::btnHelp()         { return {{(float)gui::WINDOW_WIDTH - 124.f, 6.f}, {114.f, 30.f}}; }
+sf::FloatRect Renderer::btnHelp()         { return {{10.f, 8.f}, {40.f, 32.f}}; }
+sf::FloatRect Renderer::btnGameOverMenu() { return {{(float)gui::WINDOW_WIDTH / 2.f - 150.f, 540.f}, {300.f, 64.f}}; }
 
 // ---------------------------------------------------------------------------
 //  Screen: Title
@@ -186,20 +187,29 @@ void Renderer::render(sf::RenderWindow& window, const GameSession& session, bool
     drawUI(window, session);
     drawHelpButton(window);
     if (showHelp) drawHelpOverlay(window);
+    if (session.isGameOver()) drawGameOverOverlay(window, session);
     window.display();
 }
 
-// Shows whose turn it is with a colored stone + label (top-left strip).
+// Big "GAME OVER" banner + the win reason + a Back-to-Menu button.
+void Renderer::drawGameOverOverlay(sf::RenderWindow& window, const GameSession& session) {
+    sf::RectangleShape dim({(float)gui::WINDOW_WIDTH, (float)gui::WINDOW_HEIGHT});
+    dim.setFillColor(sf::Color(0, 0, 0, 190));
+    window.draw(dim);
+
+    float cx = gui::WINDOW_WIDTH / 2.0f;
+    drawCenteredText(window, "GAME OVER", cx + 4, 304, 92, sf::Color(0, 0, 0, 180)); // shadow
+    drawCenteredText(window, "GAME OVER", cx, 300, 92, sf::Color(230, 70, 70));
+
+    // The result text (e.g. "Black wins with 5-in-a-row!") comes from the session.
+    drawCenteredText(window, session.getStatusMsg(), cx, 430, 26, INK);
+
+    drawButton(window, btnGameOverMenu(), "Back to Menu", isHover(window, btnGameOverMenu()), false);
+}
+
+// Shows whose turn it is: a large colored stone + label, centered at the top.
 void Renderer::drawTurnIndicator(sf::RenderWindow& window, const GameSession& session) {
     Cell turn = session.getCurrentTurn();
-
-    sf::CircleShape disc(11.f);
-    disc.setOrigin({11.f, 11.f});
-    disc.setPosition({24.f, 22.f});
-    disc.setFillColor(turn == BLACK ? sf::Color::Black : sf::Color::White);
-    disc.setOutlineColor(turn == BLACK ? blackOutline : sf::Color(150, 150, 150));
-    disc.setOutlineThickness(1.5f);
-    window.draw(disc);
 
     std::string who = (turn == BLACK) ? "Black" : "White";
     std::string label;
@@ -211,12 +221,53 @@ void Renderer::drawTurnIndicator(sf::RenderWindow& window, const GameSession& se
     } else {
         label = who + " to move";
     }
-    drawText(window, label, 42, 11, 18, textColor);
+
+    const float discR = 15.0f;
+    const float gap   = 14.0f;
+    const float midY  = 22.0f;
+
+    // Measure the text so the whole "disc + label" group can be centered.
+    sf::Text t(font, label, 26);
+    t.setFillColor(textColor);
+    sf::FloatRect b = t.getLocalBounds();
+    float total  = discR * 2.0f + gap + b.size.x;
+    float startX = CENTER_X - total / 2.0f;
+
+    sf::CircleShape disc(discR);
+    disc.setOrigin({discR, discR});
+    disc.setPosition({startX + discR, midY});
+    disc.setFillColor(turn == BLACK ? sf::Color::Black : sf::Color::White);
+    disc.setOutlineColor(turn == BLACK ? blackOutline : sf::Color(150, 150, 150));
+    disc.setOutlineThickness(2.0f);
+    window.draw(disc);
+
+    t.setPosition({startX + discR * 2.0f + gap - b.position.x,
+                   midY - b.size.y / 2.0f - b.position.y});
+    window.draw(t);
 }
 
-// ===== BONUS (controls help): clickable button that opens the overlay =====
+// ===== BONUS (controls help): top-left hamburger button that opens the overlay =====
 void Renderer::drawHelpButton(sf::RenderWindow& window) {
-    drawButton(window, btnHelp(), "? CONTROLS", isHover(window, btnHelp()), false);
+    sf::FloatRect r = btnHelp();
+    bool hov = isHover(window, r);
+
+    sf::RectangleShape box(r.size);
+    box.setPosition(r.position);
+    box.setFillColor(hov ? ACCENT : PANEL_BG);
+    box.setOutlineColor(ACCENT);
+    box.setOutlineThickness(2.0f);
+    window.draw(box);
+
+    // Three horizontal bars (the classic "menu" icon).
+    sf::Color barColor = hov ? ACCENT_DK : INK;
+    float barW = r.size.x - 16.0f;
+    float barX = r.position.x + 8.0f;
+    for (int i = 0; i < 3; ++i) {
+        sf::RectangleShape bar({barW, 3.0f});
+        bar.setPosition({barX, r.position.y + 8.0f + i * 8.0f});
+        bar.setFillColor(barColor);
+        window.draw(bar);
+    }
 }
 
 void Renderer::drawHelpOverlay(sf::RenderWindow& window) {
@@ -242,8 +293,7 @@ void Renderer::drawHelpOverlay(sf::RenderWindow& window) {
     line("H  -  suggest a move (hint)");
     line("U  -  undo        Y  -  redo");
     line("T  -  toggle Light / Dark theme");
-    line("R  -  back to main menu");
-    drawCenteredText(window, "Click ? CONTROLS again to close", cx, 565, 16, INK_DIM);
+    drawCenteredText(window, "Click the menu icon again to close", cx, 565, 16, INK_DIM);
 }
 
 void Renderer::drawGrid(sf::RenderWindow& window) {
