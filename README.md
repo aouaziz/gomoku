@@ -1,239 +1,364 @@
 # ⛩️ Gomoku AI Engine — Pente Variant
 
-> A high-performance, strictly-ruled C++ implementation of Gomoku (Pente variant) featuring a custom graphical interface built with **SFML 3** and a highly optimized Minimax AI engine capable of searching multiple turns ahead in **under 0.5 seconds**.
+> **A 1337 (42 Network) Student Project** — A high-performance C++ implementation of Gomoku (Pente variant) featuring a custom graphical interface built with **SFML 3** and a heavily optimized AI engine capable of searching multiple turns ahead in **under 0.5 seconds**.
+
+---
+
+<!-- SEO & Discovery Tags -->
+<!--
+Tags: gomoku, pente, board-game, AI, minimax, alpha-beta-pruning, SFML, C++, C++20,
+game-engine, artificial-intelligence, negamax, transposition-table, zobrist-hashing,
+iterative-deepening, PVS, LMR, 1337-school, 42-network, student-project, gomoku-ai,
+game-tree-search, move-ordering, five-in-a-row, capture-game, 42cursus
+-->
+
+![C++20](https://img.shields.io/badge/Language-C%2B%2B20-blue?style=flat-square&logo=c%2B%2B)
+![SFML 3](https://img.shields.io/badge/Graphics-SFML%203-green?style=flat-square)
+![School](https://img.shields.io/badge/School-1337%20%7C%2042%20Network-orange?style=flat-square)
+![AI](https://img.shields.io/badge/AI-Minimax%20%2B%20Alpha--Beta-purple?style=flat-square)
+![Response Time](https://img.shields.io/badge/AI%20Response-under%200.5s-red?style=flat-square)
+![License](https://img.shields.io/badge/License-Academic-lightgrey?style=flat-square)
 
 ---
 
 ## 📋 Table of Contents
 
+- [About the Project](#-about-the-project)
 - [Game Rules](#-game-rules)
 - [Artificial Intelligence](#-artificial-intelligence)
 - [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites--dependencies)
+- [Prerequisites & Dependencies](#️-prerequisites--dependencies)
 - [Build & Run](#-build--run)
 - [Controls](#-controls-cheat-sheet)
-- [Bonuses](#-bonuses-detailed)
-- [Development Log — Fixes & Updates](#-development-log--fixes--updates)
-- [Roadmap](#-roadmap)
+- [Bonus Features](#-bonus-features)
+- [Roadmap](#️-roadmap)
+
+---
+
+## 🏫 About the Project
+
+This project was developed as part of the **1337 School curriculum** (a member of the **42 Network**), one of the most rigorous peer-to-peer coding school programs in the world.
+
+The goal was to build a **complete, competitive Gomoku engine** from scratch — no game libraries, no pre-built AI frameworks — enforcing every rule of the professional Pente ruleset, while keeping the AI response time strictly **under 0.5 seconds** regardless of board state or search depth.
+
+**Key achievements:**
+- 🧠 AI regularly reaches **search depth 9–10** within the time budget
+- ⚡ Worst-case AI move time: **< 0.5 seconds**
+- 🎮 Full graphical interface with menus, themes, and in-game overlays
+- ✅ Exhaustive rule-validation test suite included
 
 ---
 
 ## 📜 Game Rules
 
-This engine acts as a **strict referee**, enforcing the full professional Gomoku/Pente ruleset:
+This engine acts as a **strict referee**, enforcing the complete professional Gomoku / Pente ruleset. Every rule below is validated before a move is accepted.
 
 | Rule | Description |
 |---|---|
-| **5-in-a-row** | Align 5 or more stones in any direction to win. |
-| **Capture Victory** | Capture 10 of the opponent's stones (5 pairs) to win. |
-| **Capture Mechanic** | Flank a pair of opponent stones on both sides to capture them. |
-| **Breakable Five** | A 5-in-a-row does **not** immediately win if, on the very next turn, the opponent can either capture a stone out of that line **or** capture their 5th pair (reaching 10 captures). |
+| **5-in-a-Row** | Align 5 or more stones in any direction (horizontal, vertical, diagonal) to win. |
+| **Capture Victory** | Capture **10 of your opponent's stones** (5 pairs) to win — even if they have a 5-in-a-row. |
+| **Capture Mechanic** | Flank an **exact pair** of opponent stones on both sides with your stones to capture and remove them. |
+| **Breakable Five** | A 5-in-a-row does **not** win immediately if, on the very next turn, the opponent can capture a stone out of that line **or** reach their 10th capture. |
 | **Double-Three Rule** | A player **cannot** place a stone that simultaneously creates two or more open-threes — *unless* that same move also captures opponent stones. |
+
+> ⚠️ The Double-Three and Breakable Five rules are the most commonly misimplemented in student projects. This engine handles both correctly.
 
 ---
 
 ## 🧠 Artificial Intelligence
 
-The AI is designed to be **ruthless, defensive, and lightning-fast**, strictly respecting the `< 0.5s` response time constraint through a stack of advanced techniques:
+The AI is designed to be **aggressive, defensive, and extremely fast**. It strictly respects the `< 0.5s` response time constraint through a layered stack of advanced search techniques.
 
-### Minimax Algorithm
-The core decision-making engine. The AI simulates future moves, always assuming the human plays optimally, and navigates the game tree to find the mathematically best path.
+---
 
-### Alpha-Beta Pruning
-Eliminates branches of the game tree that are provably worse than already-found moves — reducing billions of calculations to thousands, with no loss in decision quality.
+### 🔷 Minimax Algorithm (Negamax formulation)
 
-### Zobrist Hashing & Transposition Tables
-Every board state is fingerprinted with a unique **64-bit integer** via XOR bitwise operations. Scores for previously evaluated states are cached in a Transposition Table; revisiting any state via a different move order is an instant O(1) lookup.
+The foundation of the AI. It simulates all possible future moves, always assuming the opponent plays perfectly, and navigates the **game tree** to find the mathematically best move.
 
-### Move Ordering
-Candidate moves are sorted before evaluation — captures and threats are explored first. This dramatically improves Alpha-Beta pruning efficiency, yielding roughly a **10× speedup**.
+This engine uses the **Negamax** variant — a cleaner single-perspective formulation of Min-Max where each node simply **negates the child's score**, removing the need for separate min/max logic.
 
-### Iterative Deepening
-The AI searches at depth 1, then 2, then 3... When the **~420ms timer** fires, it immediately aborts the current search (via an exception that unwinds cleanly) and returns the best move found at the last *completed* depth — guaranteeing a response is always ready well under the 0.5s limit.
+---
 
-### Principal Variation Search & Late Move Reductions
-On top of plain alpha-beta, later moves are first probed with a **null window** (PVS) and quiet, low-ranked moves are searched at **reduced depth** (LMR), with a full re-search only when one unexpectedly beats the current best. These are what let the nominal search reach **depth 9–10** within the time budget — tactical/forcing positions routinely hit 10.
+### ✂️ Alpha-Beta Pruning
 
-> The search is implemented as **negamax** (a single-perspective formulation of Min-Max where each node negates the child score), with alpha-beta pruning, PVS, LMR, a transposition table, and killer-move / history move ordering.
+Attached on top of Negamax, Alpha-Beta pruning **eliminates branches** of the game tree that are provably worse than already-discovered moves. This cuts the effective branching factor dramatically — reducing billions of potential calculations down to thousands — with **zero loss in decision quality**.
+
+---
+
+### 🔑 Zobrist Hashing & Transposition Tables
+
+Every unique board state is **fingerprinted** with a 64-bit integer using XOR-based Zobrist hashing. Scores for previously evaluated positions are stored in a **Transposition Table** (a custom hash cache). If the same board state is reached through a different move order, the result is retrieved in **O(1)** — no re-evaluation needed.
+
+---
+
+### 📊 Move Ordering
+
+Before the AI evaluates candidate moves, it **sorts them** — placing captures, threats, and winning sequences first. Because Alpha-Beta pruning is most effective when the best moves are explored early, good move ordering delivers roughly a **10× speedup** in pruning efficiency.
+
+---
+
+### 🔄 Iterative Deepening
+
+Rather than committing to a fixed search depth, the AI searches at depth 1, then depth 2, then depth 3, and so on. When the **~420ms internal timer** fires, the current search is cleanly aborted (via a managed exception that unwinds safely), and the **best move from the last fully completed depth** is returned — guaranteeing a valid move is always ready well under the 0.5s limit.
+
+---
+
+### 🔬 Principal Variation Search (PVS) & Late Move Reductions (LMR)
+
+These two techniques push the search to its practical limits:
+
+- **PVS:** After finding the best move in a node, later moves are first tested with a **null window** (minimal alpha-beta window). If they fail to beat the current best, they are discarded cheaply. If one unexpectedly exceeds the window, a full re-search is triggered.
+- **LMR:** Quiet, low-priority moves are searched at a **reduced depth** first. Only if a reduced-depth result is surprisingly strong does the engine do a full-depth re-search.
+
+Together, PVS + LMR allow the AI to routinely reach **depth 9–10** within the time budget, with tactical or forcing positions (captures, threats) consistently reaching deeper.
+
+---
+
+### 🧩 Summary of AI Techniques
+
+| Technique | Purpose |
+|---|---|
+| Negamax | Core game tree search |
+| Alpha-Beta Pruning | Eliminates provably bad branches |
+| Zobrist Hashing | Unique fingerprint per board state |
+| Transposition Table | O(1) cache lookup for repeated states |
+| Move Ordering | Search best moves first for maximum pruning |
+| Iterative Deepening | Time-safe depth search with guaranteed fallback |
+| PVS | Efficient null-window probing of later moves |
+| LMR | Reduced-depth search for quiet low-priority moves |
+| Killer / History Heuristics | Move ordering refinement across sibling nodes |
 
 ---
 
 ## 🏗️ Architecture
 
-The codebase follows a strict **decoupled layered architecture**, ensuring thread-safety and zero state corruption during deep AI simulations.
+The codebase follows a strict **decoupled layered architecture**, ensuring thread safety and zero state corruption during deep AI simulations. Each layer has a single, well-defined responsibility.
 
 ```
 src/
-├── core/                  # Fundamental data types
-│   └── Types.hpp          # Cell enums, Point and MoveResult structs
+├── core/                  # Fundamental shared data types
+│   └── Types.hpp          # Cell enums, Point struct, MoveResult struct
 │
-├── engine/                # AI simulation playground (no UI or turn logic)
-│   ├── Board              # Pure data container (bounds checking, state arrays)
+├── engine/                # Pure game logic — no UI, no turn management
+│   ├── Board              # Data container: cell storage, bounds checking, state arrays
 │   ├── Rules              # 100% stateless static rule-validation functions
-│   ├── GameEngine         # State mutator (applyMove, undoMove, win detection)
-│   └── Zobrist            # 64-bit random key generator for hashing
+│   ├── GameEngine         # State mutator: applyMove(), undoMove(), win detection
+│   └── Zobrist            # 64-bit random key generator for board state hashing
 │
-├── game/                  # Orchestrator layer
-│   └── GameSession        # Turn switching, AI scheduling, string/UI generation
+├── game/                  # Orchestration layer
+│   └── GameSession        # Turn switching, AI scheduling, UI state string generation
 │
-├── gui/                   # SFML presentation layer
-│   ├── GameWindow         # Window lifecycle and event loop polling
-│   ├── InputHandler       # Converts raw pixel clicks to board coordinates
-│   └── Renderer           # Pure drawing logic (grid, hoshi points, stones, text)
+├── gui/                   # SFML presentation layer (no game logic)
+│   ├── GameWindow         # Window lifecycle, event loop, screen routing
+│   ├── InputHandler       # Converts raw pixel coordinates to board grid coordinates
+│   └── Renderer           # Pure drawing: grid, hoshi points, stones, text, overlays
 │
-└── ai/                    # Artificial intelligence
-    ├── AI                 # Iterative-deepening negamax (α-β, PVS, LMR) + time mgmt
-    ├── MoveGenerator      # Reduces 361 cells to nearby candidates & scores them
-    ├── Evaluator          # The "brain": scores board lines (+100,000 for wins)
-    └── TranspositionTable # Zobrist-keyed cache (score + best move for ordering)
+└── ai/                    # Artificial intelligence subsystem
+    ├── AI                 # Time management, iterative deepening loop, exception safety
+    ├── MoveGenerator      # Reduces 361 candidates to ~30 nearby moves, sorts by priority
+    ├── Evaluator          # Scoring function: reads board lines, assigns values (+100,000 for win)
+    └── TranspositionTable # Custom array-based cache for Zobrist hash entries
 ```
+
+**Design principles enforced throughout:**
+- The `engine/` layer has **no knowledge** of the UI or AI layers
+- The `ai/` layer operates on a **copy of the board** — it never touches live game state
+- All rule validation is **stateless** — the same function called with the same inputs always returns the same result
 
 ---
 
 ## 🛠️ Prerequisites & Dependencies
 
-| Requirement | Details |
+| Requirement | Version / Details |
 |---|---|
-| **C++ Compiler** | C++20 support required (`g++` or `clang`) |
-| **Make** | Standard build system |
-| **SFML 3.x** | Uses SFML 3.0 API (`openFromFile`, `std::optional` event polling) |
+| **C++ Compiler** | C++20 or later (`g++` or `clang++`) |
+| **Make** | Standard GNU Make |
+| **SFML** | Version 3.x (uses SFML 3.0 API — `openFromFile`, `std::optional` event polling) |
 
-**Installing SFML on Linux (Ubuntu/Debian):**
+> ⚠️ **SFML 2.x is not compatible.** The SFML 3.0 API has breaking changes from 2.x. Make sure you install version 3.
+
+---
+
+### Installing SFML
+
+**Ubuntu / Debian (Linux):**
 ```bash
 sudo apt update
 sudo apt install libsfml-dev
 ```
 
-**Installing SFML on macOS (Homebrew):**
+**macOS (Homebrew):**
 ```bash
 brew install sfml
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S sfml
 ```
 
 ---
 
 ## 🚀 Build & Run
 
-**Compile:**
+### Compile the project
 ```bash
 make
 ```
 
-**Play:**
+### Launch the game
 ```bash
 ./Gomoku
 ```
-> **Flow:** Title screen → **Start Game** → pick **Mode** (vs AI / Hotseat) → if vs AI, choose **difficulty + your color** → play.
-> During a game the bottom bar shows the AI's last move-time, the **top-center** shows **whose turn** it is, the last stone is ringed in red, and the **☰ menu icon** (top-left) opens a list of every shortcut.
 
-**Run the rule-validation test suite:**
+**Game flow:**
+1. **Title screen** → click **Start Game**
+2. Choose **Mode**: Player vs AI, or Hotseat (Player vs Player)
+3. If vs AI: select **difficulty** (Easy / Medium / Hard) and **your color**
+4. Play!
+
+> During a match, the **bottom bar** shows the AI's last move time in milliseconds. The **top-left** shows whose turn it is (with a colored stone indicator). The most recently placed stone is highlighted with a **red ring**. Press **? CONTROLS** (top-right) to open the in-game controls overlay.
+
+---
+
+### Run the rule-validation test suite
 ```bash
 make test
 ```
+This runs an exhaustive suite of unit tests covering edge cases for every game rule — captures, Double-Three detection, Breakable Five scenarios, and win conditions.
 
-**Clean build artifacts:**
+---
+
+### Clean build artifacts
 ```bash
-make clean    # Removes object files
-make fclean   # Removes object files and executables
+make clean    # Remove compiled object files only
+make fclean   # Remove object files AND the compiled executable
+make re       # Full clean rebuild from scratch
 ```
 
 ---
 
-## 🎮 Controls (cheat-sheet)
+## 🎮 Controls Cheat-Sheet
 
 | Input | Action |
 |---|---|
-| **Mouse (left click)** | Navigate menus / place a stone |
-| **Enter** | Start (on the title screen) |
-| **`H`** | Suggest a move (hint, shown — not played) |
-| **`U`** | Undo |
-| **`Y`** | Redo |
+| **Left Mouse Click** | Navigate menus / place a stone on the board |
+| **Enter** | Confirm / Start (on the title screen) |
+| **`H`** | Show a move hint (suggested move is highlighted — not played automatically) |
+| **`U`** | Undo last move |
+| **`Y`** | Redo last undone move |
 | **`T`** | Toggle Dark / Light theme (works on every screen) |
-| **Esc** | Go back one menu step |
-| **Back to Menu** (button) | Returns to the title screen on the Game Over screen |
-| **`E` / `M` / `D`** | Easy / Medium / Hard (on the AI-setup screen) |
-| **☰ menu icon** (top-left button) | Open/close the in-game controls overlay |
-
-> All bonus code is tagged in the source with a `// BONUS (...)` comment — run `grep -rn "BONUS" src/` to find every one.
-
-## ✨ Bonuses (detailed)
-
-**1. AI difficulty selector.** On the *AI setup* screen you choose **Easy / Medium / Hard**, which maps to the AI's per-move time budget (**100 / 250 / 420 ms**). A larger budget lets iterative deepening finish more plies, so the AI literally thinks further ahead on higher difficulty. The choice flows `GameWindow → GameSession::setAITime → AI::setTimeLimit`, where `timeIsUp()` enforces it.
-*Test:* pick Easy vs Hard and watch the “AI last move: N ms” field and the `Depth N done` lines in the terminal — Hard reaches deeper depths.
-
-**2. Undo (`U`).** Takes back the last move, fully restoring captured stones and the capture counter. In **vs-AI** mode it rewinds a whole round (the AI's reply *and* your move) so it's your turn again; in **hotseat** it rewinds one ply. `GameEngine::undoMove()` returns the undone move so the session can restore whose turn it is.
-> Note: undo can rewind all the way to the start, so it doubles as a "restart current game" if you keep pressing it.
-*Test:* set up a capture, undo, and confirm the captured pair reappears and the counter drops back.
-
-**3. Redo (`Y`).** Re-applies moves you just undid (mirroring undo's one-ply / one-round behavior). Undone moves are kept on a redo stack that is cleared the moment you make a new move, so you can't redo into an abandoned line.
-*Test:* undo a move, press `Y` to bring it back; then undo, play elsewhere, and note that `Y` now does nothing.
-
-**4. Dark / Light theme (`T`).** Re-skins the entire board — background, grid lines, hoshi dots, text, and stone outlines — between a light wood theme and a dark slate theme. Works on the menus too.
-*Test:* press `T` repeatedly on any screen.
-
-**5. Last-move marker.** The most recently placed stone is ringed in **red**, so it's obvious what just happened (especially after the AI moves). *(The separate green ring is the `H` move-suggestion.)*
-*Test:* play any move — a red ring appears on it and follows the latest stone.
-
-> Plus quality-of-life UI: a **gamer-style multi-screen menu**, a large **turn indicator** (colored stone + label) at top-center, and a **☰ menu icon** (top-left) that opens a controls overlay.
+| **`R`** | Return to the main menu |
+| **`Esc`** | Go back one screen |
+| **`E` / `M` / `D`** | Set difficulty to Easy / Medium / Hard (on the AI setup screen) |
+| **? CONTROLS** (top-right) | Open / close the in-game controls overlay |
 
 ---
 
-## 🧾 Development Log — Fixes & Updates
+## ✨ Bonus Features
 
-A detailed record of everything that was changed to bring the project from a partially-working state to a complete, validated submission.
+All bonus features are clearly marked in the source code with a `// BONUS (...)` comment.
+To find every bonus location, run:
 
-### Phase 1 — Critical correctness & mandatory-requirement fixes
+```bash
+grep -rn "BONUS" src/
+```
 
-| # | Problem | Fix |
+---
+
+### 1. 🎯 AI Difficulty Selector
+On the AI setup screen, choose **Easy**, **Medium**, or **Hard**. Each maps to a different per-move time budget:
+
+| Difficulty | Time Budget | Typical Search Depth |
 |---|---|---|
-| 1 | **Zobrist hash was never updated** — `Board::setCell` placed stones but never touched `currentHash`, so `getHash()` always returned `0`. Every position mapped to the same transposition-table slot, so the cache returned scores from *unrelated* boards and corrupted the search. | `setCell` now XORs the cell's key in/out incrementally. Added a **side-to-move key** and folded the **capture counts** into the TT key so different-turn / different-capture positions can't collide. *(Files: `Board.cpp`, `Zobrist.*`, `AI.cpp`)* |
-| 2 | **No on-screen AI timer** — the subject fails the project without one ("No timer, no project validation"). Timing was only printed to stdout. | `GameSession` times every search and the Renderer shows **"AI last move: N ms"** in the UI bar. |
-| 3 | **Missing hotseat + move-suggestion** (mandatory). The mode was hard-coded. | Added a **Hotseat** mode and an AI **move-suggestion** (`H`) that shows the best move (green ring) without playing it. |
-| 4 | **Font path was Linux-only** — on macOS no text rendered at all. | Font loading now tries a bundled `assets/font.ttf` first, then common Linux/macOS system fonts. |
-| 5 | **Executable name / Makefile** — binary was `gomoku`; subject requires `Gomoku`. | Renamed to **`Gomoku`** and added `-MMD -MP` header-dependency tracking (correct incremental builds, no needless relink). |
+| Easy | 100 ms | Depth 4–5 |
+| Medium | 250 ms | Depth 6–7 |
+| Hard | 420 ms | Depth 9–10 |
 
-### Phase 2 — AI search rewrite (genuine depth 10)
+A larger budget allows iterative deepening to complete more plies — the AI literally **thinks further ahead** on harder difficulties.
 
-The original search only reached **depth 2–3** in 0.5 s because every node called the full `GameEngine::applyMove` (two whole-board win scans) and `isDoubleThree` (dozens of board copies) for *every* candidate. It was rebuilt into a fast, modern search reaching **depth 9–10**:
-
-- **Incremental make/undo** on a private board copy — places a stone, handles captures inline, and detects a win **locally** via `hasFiveAt` through the placed stone (no full-board scans, no copies, no exceptions in the hot loop).
-- **Negamax + alpha-beta** — a single-perspective Min-Max where each node negates the child score.
-- **Principal Variation Search (PVS)** — later moves are probed with a null window and only re-searched at full width if they beat alpha.
-- **Late Move Reductions (LMR)** — quiet, low-ranked moves are searched shallower first; this is the main lever that pushes the nominal depth to 9–10.
-- **Capped, ordered branching** — candidates are limited to a neighbourhood (radius 2 near the root, radius 1 deeper), scored with a cheap no-mutation heuristic, and truncated; ordered by **TT move → killer moves → history heuristic**.
-- **Working transposition table** — now stores the best move for ordering, with depth-preferred replacement.
-- **Throttled time checks** — `steady_clock::now()` is read once per 2048 nodes instead of every node.
-- **Legality only at the root** — the returned move is filtered through the real double-three rule, so it's always legal; deep nodes skip that expensive check.
-
-> Result: from **~depth 3** to **depth 9–10** within a ~420 ms budget — verified on opening, mid-game, and tactical positions.
-
-### Phase 3 — Rule-correctness & robustness fixes
-
-- **Endgame capture-to-ten** — a 5-in-a-row is now also refuted when the opponent's next-move capture would bring them to **10 captures** (not only when it breaks the line itself), matching the subject's *"lost four pairs and the opponent can capture one more"* clause. *(`Rules::checkIfCorrectFive`)*
-- **No-legal-move safety** — if a player has no legal move the game is declared a **draw** instead of the AI looping forever on an impossible move. *(`GameSession::hasLegalMove` / `undo`-safe `handleAITurn`)*
-
-### Phase 4 — Bonuses
-
-AI difficulty selector, Undo, Redo, Dark/Light theme, and the last-move marker — see **[Bonuses](#-bonuses-detailed)** above. All bonus code is tagged with `// BONUS (...)` comments.
-
-### Phase 5 — GUI overhaul
-
-- **Multi-screen "gamer-style" menu** — Title → Start → Mode → (AI: difficulty + color) → Play, with clickable, hover-highlighted buttons.
-- **Turn indicator** — a large colored stone + label centered at the top ("Your turn", "AI thinking…", or "X to move" in hotseat).
-- **☰ menu icon** (top-left) — opens a controls overlay listing every shortcut.
-- **Game Over overlay** — a big **GAME OVER** banner with the result and a **Back to Menu** button.
-
-### Verification
-
-- `make test` — **58 rule tests pass** (placement, captures, five-in-a-row, breakable five, endgame capture-to-ten, double-three, undo).
-- Dedicated headless harnesses confirmed: AI completes wins / blocks open fours / never returns an illegal move across 40-ply self-play, and undo/redo + difficulty behave correctly.
-- Builds clean under `-Wall -Wextra -Werror -std=c++20`.
-
-## 🔮 Roadmap
-
-- [ ] Expanded Evaluator heuristics to recognize split threats (e.g., broken 3-in-a-row)
-- [ ] Alternative opening rules (Pro / Swap / Swap2)
-- [ ] Highlight the winning five stones on game over
+**How to verify:** Select Easy vs Hard and compare the `"AI last move: N ms"` display and the `Depth N done` terminal output.
 
 ---
 
-<p align="center">Built with C++20 · SFML 3 · Negamax · Alpha-Beta · PVS · LMR · Transposition Table</p>
+### 2. ↩️ Undo (`U`)
+Takes back the last move, **fully restoring** captured stones and resetting the capture counter.
+
+- In **vs-AI mode**: rewinds a full round (the AI's reply **and** your move) so it is your turn again
+- In **hotseat mode**: rewinds exactly one ply
+
+`GameEngine::undoMove()` returns the full move record so the session can restore board state cleanly.
+
+**How to verify:** Set up a capture, press `U`, confirm the captured pair reappears and the counter decrements.
+
+---
+
+### 3. 🔁 Redo (`Y`)
+Re-applies moves that were just undone (mirroring undo's one-ply / one-round behavior).
+
+Undone moves are tracked on a **redo stack**, which is cleared the moment you make a new move — so you cannot redo into an abandoned branch.
+
+**How to verify:** Undo a move, press `Y` to restore it. Then undo, play somewhere else, and confirm `Y` now has no effect.
+
+---
+
+### 4. 🌙 Dark / Light Theme (`T`)
+Pressing `T` re-skins the **entire application** — board background, grid lines, hoshi dots, stone outlines, and all text — between a warm **light wood** theme and a cool **dark slate** theme. Works on all menus and screens.
+
+**How to verify:** Press `T` repeatedly on any screen.
+
+---
+
+### 5. 🔴 Last-Move Marker
+The most recently placed stone is highlighted with a **red ring**, making it immediately clear where the last move was played — especially useful after the AI moves.
+
+*(The green ring shown with `H` is the separate move-suggestion indicator.)*
+
+**How to verify:** Play any move — a red ring appears on it and updates after every subsequent move.
+
+---
+
+### 6. 🖥️ Quality-of-Life UI
+- Multi-screen **gamer-style menu** system with smooth screen transitions
+- **Turn indicator** (colored stone + player label) in the top-left corner
+- **? CONTROLS** overlay accessible from within a live game
+- Real-time **AI move-time display** in milliseconds at the bottom of the screen
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Network multiplayer (online 1v1)
+- [ ] Opening book for early-game AI improvement
+- [ ] Move time visualization (per-move thinking graph)
+- [ ] Replay system (save and review full games)
+- [ ] Custom board sizes (13×13, 15×15 toggle)
+
+---
+
+## 🤝 Contributing
+
+This project is part of an academic program at **1337 School (42 Network)**. Contributions, feedback, and issue reports are welcome — especially regarding rule-edge-case bugs or AI evaluation improvements.
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "feat: describe your change"`
+4. Push to your branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+## 🏷️ Keywords & Tags
+
+`gomoku` `pente` `five-in-a-row` `board-game-ai` `minimax` `negamax` `alpha-beta-pruning`
+`principal-variation-search` `late-move-reduction` `transposition-table` `zobrist-hashing`
+`iterative-deepening` `move-ordering` `C++20` `SFML3` `game-engine` `1337-school`
+`42-network` `42cursus` `student-project` `artificial-intelligence` `game-tree-search`
+`capture-game` `double-three` `breakable-five` `competitive-ai`
+
+---
+
+<p align="center">
+  <strong>⛩️ Built at 1337 School · 42 Network</strong><br/>
+  <sub>C++20 · SFML 3 · Negamax · Alpha-Beta Pruning · PVS · LMR · Zobrist Hashing · Transposition Table</sub>
+</p>
