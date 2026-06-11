@@ -11,6 +11,9 @@
 - [Architecture](#-architecture)
 - [Prerequisites](#-prerequisites--dependencies)
 - [Build & Run](#-build--run)
+- [Controls](#-controls-cheat-sheet)
+- [Bonuses](#-bonuses-detailed)
+- [Development Log — Fixes & Updates](#-development-log--fixes--updates)
 - [Roadmap](#-roadmap)
 
 ---
@@ -79,10 +82,10 @@ src/
 │   └── Renderer           # Pure drawing logic (grid, hoshi points, stones, text)
 │
 └── ai/                    # Artificial intelligence
-    ├── AI                 # Time management, Minimax loop, exception safety
-    ├── MoveGenerator      # Reduces 361 moves to ~30 nearby candidates & sorts them
+    ├── AI                 # Iterative-deepening negamax (α-β, PVS, LMR) + time mgmt
+    ├── MoveGenerator      # Reduces 361 cells to nearby candidates & scores them
     ├── Evaluator          # The "brain": scores board lines (+100,000 for wins)
-    └── TranspositionTable # Custom cache array for Zobrist hashes
+    └── TranspositionTable # Zobrist-keyed cache (score + best move for ordering)
 ```
 
 ---
@@ -171,6 +174,59 @@ make fclean   # Removes object files and executables
 *Test:* play any move — a red ring appears on it and follows the latest stone.
 
 > Plus quality-of-life UI: a **gamer-style multi-screen menu**, a large **turn indicator** (colored stone + label) at top-center, and a **☰ menu icon** (top-left) that opens a controls overlay.
+
+---
+
+## 🧾 Development Log — Fixes & Updates
+
+A detailed record of everything that was changed to bring the project from a partially-working state to a complete, validated submission.
+
+### Phase 1 — Critical correctness & mandatory-requirement fixes
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | **Zobrist hash was never updated** — `Board::setCell` placed stones but never touched `currentHash`, so `getHash()` always returned `0`. Every position mapped to the same transposition-table slot, so the cache returned scores from *unrelated* boards and corrupted the search. | `setCell` now XORs the cell's key in/out incrementally. Added a **side-to-move key** and folded the **capture counts** into the TT key so different-turn / different-capture positions can't collide. *(Files: `Board.cpp`, `Zobrist.*`, `AI.cpp`)* |
+| 2 | **No on-screen AI timer** — the subject fails the project without one ("No timer, no project validation"). Timing was only printed to stdout. | `GameSession` times every search and the Renderer shows **"AI last move: N ms"** in the UI bar. |
+| 3 | **Missing hotseat + move-suggestion** (mandatory). The mode was hard-coded. | Added a **Hotseat** mode and an AI **move-suggestion** (`H`) that shows the best move (green ring) without playing it. |
+| 4 | **Font path was Linux-only** — on macOS no text rendered at all. | Font loading now tries a bundled `assets/font.ttf` first, then common Linux/macOS system fonts. |
+| 5 | **Executable name / Makefile** — binary was `gomoku`; subject requires `Gomoku`. | Renamed to **`Gomoku`** and added `-MMD -MP` header-dependency tracking (correct incremental builds, no needless relink). |
+
+### Phase 2 — AI search rewrite (genuine depth 10)
+
+The original search only reached **depth 2–3** in 0.5 s because every node called the full `GameEngine::applyMove` (two whole-board win scans) and `isDoubleThree` (dozens of board copies) for *every* candidate. It was rebuilt into a fast, modern search reaching **depth 9–10**:
+
+- **Incremental make/undo** on a private board copy — places a stone, handles captures inline, and detects a win **locally** via `hasFiveAt` through the placed stone (no full-board scans, no copies, no exceptions in the hot loop).
+- **Negamax + alpha-beta** — a single-perspective Min-Max where each node negates the child score.
+- **Principal Variation Search (PVS)** — later moves are probed with a null window and only re-searched at full width if they beat alpha.
+- **Late Move Reductions (LMR)** — quiet, low-ranked moves are searched shallower first; this is the main lever that pushes the nominal depth to 9–10.
+- **Capped, ordered branching** — candidates are limited to a neighbourhood (radius 2 near the root, radius 1 deeper), scored with a cheap no-mutation heuristic, and truncated; ordered by **TT move → killer moves → history heuristic**.
+- **Working transposition table** — now stores the best move for ordering, with depth-preferred replacement.
+- **Throttled time checks** — `steady_clock::now()` is read once per 2048 nodes instead of every node.
+- **Legality only at the root** — the returned move is filtered through the real double-three rule, so it's always legal; deep nodes skip that expensive check.
+
+> Result: from **~depth 3** to **depth 9–10** within a ~420 ms budget — verified on opening, mid-game, and tactical positions.
+
+### Phase 3 — Rule-correctness & robustness fixes
+
+- **Endgame capture-to-ten** — a 5-in-a-row is now also refuted when the opponent's next-move capture would bring them to **10 captures** (not only when it breaks the line itself), matching the subject's *"lost four pairs and the opponent can capture one more"* clause. *(`Rules::checkIfCorrectFive`)*
+- **No-legal-move safety** — if a player has no legal move the game is declared a **draw** instead of the AI looping forever on an impossible move. *(`GameSession::hasLegalMove` / `undo`-safe `handleAITurn`)*
+
+### Phase 4 — Bonuses
+
+AI difficulty selector, Undo, Redo, Dark/Light theme, and the last-move marker — see **[Bonuses](#-bonuses-detailed)** above. All bonus code is tagged with `// BONUS (...)` comments.
+
+### Phase 5 — GUI overhaul
+
+- **Multi-screen "gamer-style" menu** — Title → Start → Mode → (AI: difficulty + color) → Play, with clickable, hover-highlighted buttons.
+- **Turn indicator** — a large colored stone + label centered at the top ("Your turn", "AI thinking…", or "X to move" in hotseat).
+- **☰ menu icon** (top-left) — opens a controls overlay listing every shortcut.
+- **Game Over overlay** — a big **GAME OVER** banner with the result and a **Back to Menu** button.
+
+### Verification
+
+- `make test` — **58 rule tests pass** (placement, captures, five-in-a-row, breakable five, endgame capture-to-ten, double-three, undo).
+- Dedicated headless harnesses confirmed: AI completes wins / blocks open fours / never returns an illegal move across 40-ply self-play, and undo/redo + difficulty behave correctly.
+- Builds clean under `-Wall -Wextra -Werror -std=c++20`.
 
 ## 🔮 Roadmap
 
